@@ -1,11 +1,41 @@
 # Transformation block to merge multiple impulses
 
-Implemented for EON projects only.
+Note: Implemented for EON projects only. Anomaly detection blocks not tested.
 
-## Usage - locally
+## Usage
+
+### Locally
 
 Retrieve API Keys of your projects and run the generate.py command as follows:
 
-```MULTI_API_KEYS="ei_0b......","ei_4c......" python generate.py --out-directory out```
+```python generate.py --out-directory output --api-keys ei_0b0e...,ei_acde...```
 
-Then go to the output directory and run`./build.sh` to compile.
+### Docker
+
+Build the container:
+```docker build -t multi-impulse .```
+
+Then run:
+```docker run --rm -it -v $PWD:/home multi-impulse```
+
+### Custom deployment block
+
+Initialize the custom block - select _Deployment block_ and _Library_ when prompted:
+```edge-impulse-blocks init```
+
+Push the block:
+```edge-impulse-blocks push```
+
+Then go your Organization and Edit the deployment block with:
+* CLI arguments: ```--api-keys ei_0b0e...,ei_acde...```
+* Provileged mode: **Enabled**
+
+## Compiling the standalone example
+
+The Makefile is for Desktop environment (macOS/Linux). For embedded targets, you'll need to change the cross-compiler or integrate the multi-impulse inference library within your application.
+
+* Unzip the deploy.zip archive (from output/ directory if running on your laptop)
+* Open the source/main.cpp file and fill the raw features arrays corresponding to the project IDs
+* Run`./build.sh` to compile
+* Run `./app` to check the static inferencing results
+

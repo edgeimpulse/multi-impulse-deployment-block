@@ -9,4 +9,4 @@ RUN pip3 --no-cache-dir install -r requirements.txt
 
 COPY . ./
 
-ENTRYPOINT [ "python3",  "generate.py" ]
+ENTRYPOINT [ "python3",  "-u", "generate.py" ]

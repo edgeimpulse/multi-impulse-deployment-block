@@ -3,9 +3,10 @@ from zipfile import ZipFile
 from EIDownload import EIDownload
 
 parser = argparse.ArgumentParser(description='Multi-impulse transformation block')
+parser.add_argument('--api-keys', type=str, help='List of API Keys', required=False)
 parser.add_argument('--projects', type=str, help='List of project IDs separated by a comma', required=False)
 parser.add_argument('--tmp-directory', type=str, required=False)
-parser.add_argument('--out-directory', type=str, default='out/', required=False)
+parser.add_argument('--out-directory', type=str, default='/home/output', required=False)
 
 args, unknown = parser.parse_known_args()
 
@@ -17,9 +18,9 @@ args, unknown = parser.parse_known_args()
 # We bypass download if we already have projects locally in a tmp directory
 if not (args.projects and args.tmp_directory):
 
-    if not os.getenv("MULTI_API_KEYS"):
-        raise(Exception('MULTI_API_KEYS env variable not set'))
-    apiKeys = os.getenv("MULTI_API_KEYS").replace(' ', '').split(',') # comma between keys
+    if not args.api_keys:
+        raise(Exception('--api-keys argument not set'))
+    apiKeys = args.api_keys.replace(' ', '').split(',') # comma between keys
 
     # verify that the input file exists and create the output directory if needed
     if not os.path.exists(args.out_directory):
@@ -225,18 +226,14 @@ for p in project_ids:
         merge_model_ops(f, f2)
 
 
-# Copy to output folder
-shutil.copytree(target_dir, args.out_directory, dirs_exist_ok=True)
-shutil.rmtree(tmpdir)
-
-# 5. Copy template files to out dir
-shutil.copytree('templates', args.out_directory, dirs_exist_ok=True)
+# 5. Copy template files to tmpdir
+shutil.copytree('templates', target_dir, dirs_exist_ok=True)
 
 
 # 6 Get sample code to customize main.cpp
 
 # Get impulses ID from model_variables.h
-with open(os.path.join(args.out_directory, 'model-parameters/model_variables.h'), 'r') as file:
+with open(os.path.join(target_dir, 'model-parameters/model_variables.h'), 'r') as file:
     file_content = file.read()
 impulses_id_set = set(re.findall(r"impulse_(\d+)_(\d+)", file_content))
 impulses_id = {}
@@ -275,7 +272,7 @@ static int get_signal_data_{p}(size_t offset, size_t length, float *out_ptr) {{
 
 
 # 7 Insert custom code in main.cpp
-with open(os.path.join(args.out_directory, 'source/main.cpp'), 'r') as file1:
+with open(os.path.join(target_dir, 'source/main.cpp'), 'r') as file1:
     main_template = file1.readlines()
 
 idx = main_template.index("// get_signal declaration inserted here\n") +1
@@ -288,8 +285,11 @@ idx = main_template.index("// callback functions inserted here\n") + 1
 main_template[idx:idx] = callback_function_code
 
 print("Editing main.cpp")
-with open(os.path.join(args.out_directory, 'source/main.cpp'), 'w') as file1:
+with open(os.path.join(target_dir, 'source/main.cpp'), 'w') as file1:
     file1.writelines(main_template)
 print("main.cpp edited")
 
 print("Merging done!")
+
+# 8 Create archive
+shutil.make_archive(os.path.join(args.out_directory, 'deploy'), 'zip', target_dir)

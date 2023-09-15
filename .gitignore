@@ -1,3 +1,10 @@
 .DS_Store
 __pycache__/
 out/*
+output/*
+README.txt
+edge-impulse-sdk
+model-parameters
+tflite-model
+CMakeLists.txt
+.ei-block-config
