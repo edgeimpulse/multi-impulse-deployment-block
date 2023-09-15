@@ -1,4 +1,4 @@
-# Transformation block to merge multiple impulses
+# Deployment block to merge multiple impulses
 
 Note: Implemented for EON projects only. Anomaly detection blocks not tested.
 
