@@ -4,6 +4,10 @@ Note: Implemented for EON projects only. Anomaly detection blocks not tested.
 
 ## Usage
 
+By default, the quantized version is used when downloading the C++ libraries. To use float32, add the option `--float32` as an argument.
+
+If you need a mix of quantized and float32, you can look at the `dzip.download_model` function call in generate.py and change the code accordingly. 
+
 ### Locally
 
 Retrieve API Keys of your projects and run the generate.py command as follows:

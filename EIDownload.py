@@ -46,7 +46,7 @@ class EIDownload:
     
         # Check if build is available first
         if not self.build_available(engine, model_type):     
-            print("No build artefact found for project " + self.project_id + ", will build library first.")  
+            print("No build artefact found for project " + str(self.project_id) + ", will build library first.")  
             job_id = self.build_model(engine, model_type)
             self.wait_for_job_completion(job_id)
             print('Build OK')
@@ -89,7 +89,7 @@ class EIDownload:
     def build_model(self, engine, model_type):
         url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/jobs/build-ondevice-model"
         querystring = {"type": "zip"}
-        payload = {"engine": self.engine, "modelType": model_type}
+        payload = {"engine": engine, "modelType": model_type}
         headers = {
             "x-api-key": self.api_key,
             "Accept": "application/json",
@@ -102,7 +102,7 @@ class EIDownload:
         return body['id']
 
     def get_stdout(self, job_id, skip_line_no):
-        url = f"https://studio.edgeimpulse.com/v1/api/{project_id}/jobs/{job_id}/stdout"
+        url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/jobs/{job_id}/stdout"
         headers = {
             "x-api-key": self.api_key,
             "Accept": "application/json",
@@ -130,7 +130,7 @@ class EIDownload:
             if (not body['success']):
                 raise Exception(body['error'])
 
-            stdout = get_stdout(job_id, skip_line_no)
+            stdout = self.get_stdout(job_id, skip_line_no)
             for l in stdout:
                 print(l, end='')
             skip_line_no = skip_line_no + len(stdout)

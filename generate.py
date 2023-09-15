@@ -7,6 +7,7 @@ parser.add_argument('--api-keys', type=str, help='List of API Keys', required=Fa
 parser.add_argument('--projects', type=str, help='List of project IDs separated by a comma', required=False)
 parser.add_argument('--tmp-directory', type=str, required=False)
 parser.add_argument('--out-directory', type=str, default='/home/output', required=False)
+parser.add_argument("--float32", action="store_true", help="Use float32 model")
 
 args, unknown = parser.parse_known_args()
 
@@ -44,7 +45,11 @@ if not (args.projects and args.tmp_directory):
         download_path = os.path.join(tmpdir, str(project_ids[i]))
 
         os.makedirs(download_path)
-        zipfile_path = dzip.download_model(download_path, eon = True, quantized = True)
+        if args.float32:
+            quantized = False
+        else:
+            quantized = True
+        zipfile_path = dzip.download_model(download_path, eon = True, quantized = quantized)
 
         with ZipFile(zipfile_path, 'r') as zObject:
             zObject.extractall(download_path)
