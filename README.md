@@ -7,3 +7,5 @@ Implemented for EON projects only.
 Retrieve API Keys of your projects and run the generate.py command as follows:
 
 ```MULTI_API_KEYS="ei_0b......","ei_4c......" python generate.py --out-directory out```
+
+Then go to the output directory and run`./build.sh` to compile.
