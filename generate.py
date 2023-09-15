@@ -65,7 +65,7 @@ def edit_file(file_path, patterns, suffix):
 
         # function to add suffix to search patterns
         def add_suffix(term):
-            print("Adding " + suffix + " to " + term.group(0))
+            # print("Adding " + suffix + " to " + term.group(0))
             return term.group(0) + suffix
 
         # Search each pattern in file and call add_suffix
@@ -228,3 +228,68 @@ for p in project_ids:
 # Copy to output folder
 shutil.copytree(target_dir, args.out_directory, dirs_exist_ok=True)
 shutil.rmtree(tmpdir)
+
+# 5. Copy template files to out dir
+shutil.copytree('templates', args.out_directory, dirs_exist_ok=True)
+
+
+# 6 Get sample code to customize main.cpp
+
+# Get impulses ID from model_variables.h
+with open(os.path.join(args.out_directory, 'model-parameters/model_variables.h'), 'r') as file:
+    file_content = file.read()
+impulses_id_set = set(re.findall(r"impulse_(\d+)_(\d+)", file_content))
+impulses_id = {}
+for i in impulses_id_set:
+    impulses_id[i[0]] = i[1]
+
+get_signal_code = "\n"
+raw_features_code = "\n"
+run_classifier_code = "\n"
+callback_function_code = "\n"
+newline = "\n"
+
+# custom code for each project
+for p in project_ids:
+    get_signal_code += f"static int get_signal_data_{p}(size_t offset, size_t length, float *out_ptr);{newline}"
+    raw_features_code += f"static const float features_{p}[] = {{ ... }}; // copy features from project {p}{newline}"
+
+    deploy_version = impulses_id[p]
+    run_classifier_code += f"""
+    // new run_classifier call for project ID {p}
+    signal.total_length = impulse_{p}_{deploy_version}.dsp_input_frame_size;
+    signal.get_data = &get_signal_data_{p};
+    res = run_classifier(&impulse_{p}_{deploy_version}, &signal, &result, false);
+    printf("run_classifier for project {p} returned: %d\\r\\n", res);
+    display_results(&result, &impulse_{p}_{deploy_version});
+    {newline}"""
+
+    callback_function_code += f"""
+static int get_signal_data_{p}(size_t offset, size_t length, float *out_ptr) {{
+    for (size_t i = 0; i < length; i++) {{
+        out_ptr[i] = (features_{p} + offset)[i];
+    }}
+    return EIDSP_OK;
+}}
+{newline}"""
+
+
+# 7 Insert custom code in main.cpp
+with open(os.path.join(args.out_directory, 'source/main.cpp'), 'r') as file1:
+    main_template = file1.readlines()
+
+idx = main_template.index("// get_signal declaration inserted here\n") +1
+main_template[idx:idx] = get_signal_code
+idx = main_template.index("// raw features array inserted here\n") + 1
+main_template[idx:idx] = raw_features_code
+idx = main_template.index("// run_classifiers inserted here\n") + 1
+main_template[idx:idx] = run_classifier_code
+idx = main_template.index("// callback functions inserted here\n") + 1
+main_template[idx:idx] = callback_function_code
+
+print("Editing main.cpp")
+with open(os.path.join(args.out_directory, 'source/main.cpp'), 'w') as file1:
+    file1.writelines(main_template)
+print("main.cpp edited")
+
+print("Merging done!")
