@@ -52,10 +52,14 @@ class EIDownload:
             print('Build OK')
 
         url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/deployment/download"
-        querystring = {"type": "zip"}
+        querystring = {
+            "type": "zip",
+            "modelType": model_type,
+            "engine": engine
+        }
         headers = {
             "x-api-key": self.api_key,
-            "Accept": "application/json",
+            "Accept": "application/zip",
             "Content-Type": "application/json",
         }
         response = requests.request("GET", url, headers=headers, params=querystring)
