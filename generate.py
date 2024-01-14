@@ -91,8 +91,8 @@ def edit_file(file_path, patterns, suffix):
 # Function to merge model_variables.h
 def merge_model_variables(src_file, dest_file):
     start_str = "const char* ei_classifier_inferencing_categories"
-    end_str = "const ei_impulse_t ei_default_impulse"
-    insert_line_str = "const ei_impulse_t ei_default_impulse"
+    end_str = "const ei_impulse_t& ei_default_impulse"
+    insert_line_str = "const ei_impulse_t& ei_default_impulse"
     include_line_str = '#include "tflite-model/tflite_learn'
     try:
         # Open the first file for reading
