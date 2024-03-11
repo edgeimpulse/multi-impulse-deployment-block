@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     ei_impulse_result_t result; // Used to store inference output
     EI_IMPULSE_ERROR res;       // Return code from inference
 
-// run_classifiers inserted here
+// process_impulse inserted here
 
     return 0;
 }

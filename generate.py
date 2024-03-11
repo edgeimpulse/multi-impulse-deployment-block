@@ -8,6 +8,8 @@ parser.add_argument('--projects', type=str, help='List of project IDs separated 
 parser.add_argument('--tmp-directory', type=str, required=False)
 parser.add_argument('--out-directory', type=str, default='/home/output', required=False)
 parser.add_argument("--float32", action="store_true", help="Use float32 model")
+parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
+
 
 args, unknown = parser.parse_known_args()
 
@@ -49,7 +51,7 @@ if not (args.projects and args.tmp_directory):
             quantized = False
         else:
             quantized = True
-        zipfile_path = dzip.download_model(download_path, eon = True, quantized = quantized)
+        zipfile_path = dzip.download_model(download_path, eon = True, quantized = quantized, force_build = args.force_build)
 
         with ZipFile(zipfile_path, 'r') as zObject:
             zObject.extractall(download_path)
@@ -76,6 +78,7 @@ def edit_file(file_path, patterns, suffix):
 
         # Search each pattern in file and call add_suffix
         for pattern in patterns:
+            print("pattern: " + pattern)
             file_content = re.sub(pattern, add_suffix, file_content)
 
         with open(file_path, 'w') as file:
@@ -91,8 +94,8 @@ def edit_file(file_path, patterns, suffix):
 # Function to merge model_variables.h
 def merge_model_variables(src_file, dest_file):
     start_str = "const char* ei_classifier_inferencing_categories"
-    end_str = "const ei_impulse_t ei_default_impulse"
-    insert_line_str = "const ei_impulse_t ei_default_impulse"
+    end_str = "ei_impulse_handle_t& ei_default_impulse"
+    insert_line_str = "ei_impulse_handle_t& ei_default_impulse"
     include_line_str = '#include "tflite-model/tflite_learn'
     try:
         # Open the first file for reading
@@ -215,6 +218,8 @@ for p in project_ids:
         "ei_dsp_blocks",
         "ei_learning_blocks",
         r"ei_learning_block_config_\d+",
+        r"ei_learning_block_\d+_inputs",
+        "ei_object_detection_nms(?!_config)",
         "ei_calibration"
     ]
     edit_file(f, patterns, suffix)
@@ -258,12 +263,12 @@ for p in project_ids:
 
     deploy_version = impulses_id[p]
     run_classifier_code += f"""
-    // new run_classifier call for project ID {p}
+    // new process_impulse call for project ID {p}
     signal.total_length = impulse_{p}_{deploy_version}.dsp_input_frame_size;
     signal.get_data = &get_signal_data_{p};
-    res = run_classifier(&impulse_{p}_{deploy_version}, &signal, &result, false);
-    printf("run_classifier for project {p} returned: %d\\r\\n", res);
-    display_results(&result, &impulse_{p}_{deploy_version});
+    res = process_impulse(&impulse_handle_{p}_{deploy_version}, &signal, &result, false);
+    printf("process_impulse for project {p} returned: %d\\r\\n", res);
+    display_results(&result);
     {newline}"""
 
     callback_function_code += f"""
@@ -284,7 +289,7 @@ idx = main_template.index("// get_signal declaration inserted here\n") +1
 main_template[idx:idx] = get_signal_code
 idx = main_template.index("// raw features array inserted here\n") + 1
 main_template[idx:idx] = raw_features_code
-idx = main_template.index("// run_classifiers inserted here\n") + 1
+idx = main_template.index("// process_impulse inserted here\n") + 1
 main_template[idx:idx] = run_classifier_code
 idx = main_template.index("// callback functions inserted here\n") + 1
 main_template[idx:idx] = callback_function_code

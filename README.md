@@ -8,6 +8,8 @@ By default, the quantized version is used when downloading the C++ libraries. To
 
 If you need a mix of quantized and float32, you can look at the `dzip.download_model` function call in generate.py and change the code accordingly. 
 
+By default, the block will download cached version of builds. You can force new builds using the `--force-build` option.
+
 ### Locally
 
 Retrieve API Keys of your projects and run the generate.py command as follows:

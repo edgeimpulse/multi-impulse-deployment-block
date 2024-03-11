@@ -31,7 +31,7 @@ class EIDownload:
         return body['projects'][0]['id']
 
 
-    def download_model(self, out_directory, eon=True, quantized=True):
+    def download_model(self, out_directory, eon=True, quantized=True, force_build=False):
         if self.project_id is None:
             raise Exception('Project ID is not set')
 
@@ -45,7 +45,7 @@ class EIDownload:
             model_type = 'float32'
     
         # Check if build is available first
-        if not self.build_available(engine, model_type):     
+        if force_build or not self.build_available(engine, model_type):     
             print("No build artefact found for project " + str(self.project_id) + ", will build library first.")  
             job_id = self.build_model(engine, model_type)
             self.wait_for_job_completion(job_id)
