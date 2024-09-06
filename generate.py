@@ -492,7 +492,7 @@ for p in project_ids:
     signal.get_data = &get_signal_data_{p};
     res = process_impulse(&impulse_handle_{p}_{deploy_version}, &signal, &result, false);
     printf("process_impulse for project {p} returned: %d\\r\\n", res);
-    display_results(&result);
+    display_custom_results(&result, &impulse_{p}_{deploy_version});
     {newline}"""
 
     callback_function_code += f"""
