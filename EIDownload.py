@@ -144,6 +144,7 @@ class EIDownload:
                 time.sleep(1)
                 continue
             if (not body['job']['finishedSuccessful']):
+                print(f"Job did not finish successfully. Response: {response.text}")
                 raise Exception('Job failed')
             else:
                 break

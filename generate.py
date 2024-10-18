@@ -9,7 +9,7 @@ parser.add_argument('--tmp-directory', type=str, required=False)
 parser.add_argument('--out-directory', type=str, default='/home/output', required=False)
 parser.add_argument("--float32", action="store_true", help="Use float32 model")
 parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
-
+parser.add_argument("--full-tflite", action="store_true", help="Use full tflite compiler and NOT EON compiler")
 
 args, unknown = parser.parse_known_args()
 
@@ -51,7 +51,13 @@ if not (args.projects and args.tmp_directory):
             quantized = False
         else:
             quantized = True
-        zipfile_path = dzip.download_model(download_path, eon = True, quantized = quantized, force_build = args.force_build)
+
+        if args.full_tflite:
+            eon = False
+        else:
+            eon = True
+
+        zipfile_path = dzip.download_model(download_path, eon = eon, quantized = quantized, force_build = args.force_build)
 
         with ZipFile(zipfile_path, 'r') as zObject:
             zObject.extractall(download_path)
@@ -73,8 +79,14 @@ def edit_file(file_path, patterns, suffix):
 
         # function to add suffix to search patterns
         def add_suffix(term):
-            # print("Adding " + suffix + " to " + term.group(0))
-            return term.group(0) + suffix
+            matched_text = term.group(0)
+            # Check if the pattern contains 'include'
+            if "include" in matched_text:
+                # Special handling for include statements
+                return re.sub(r'(\w+)(\.h)', rf'\1{suffix}\2', matched_text)
+            else:
+                # General case: simply add suffix to the matched pattern
+                return matched_text + suffix
 
         # Search each pattern in file and call add_suffix
         for pattern in patterns:
@@ -89,7 +101,6 @@ def edit_file(file_path, patterns, suffix):
         print(f"File not found: {file_path}")
     except Exception as e:
         print(f"An error occurred: {str(e)}")
-
 
 # Function to merge model_variables.h
 def merge_model_variables(src_file, dest_file):
@@ -174,16 +185,181 @@ def merge_model_ops(src_file, dest_file):
     except FileNotFoundError as e:
         print(f"Error: {e}")
 
+# Function to check for YOLOV5
+def check_for_yolov5(file_path):
+    modelHasYOLOV5 = False
+    print(f"Checking for YOLOV5 in {file_path}")
+    try:
+        with open(file_path, 'r') as file:
+            file_content = file.read()
+            if "YOLOV5" in file_content:
+                modelHasYOLOV5 = True
+                print(f"YOLOV5 found")
+            else:
+                print(f"YOLOV5 not found")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+    return modelHasYOLOV5
+
+# Function to add #define
+def insert_define_statement(file_path, define_statement):
+    print(f"Inserting {define_statement} into {file_path}")
+    try:
+        with open(file_path, 'r') as file:
+            file_content = file.readlines()
+
+        include_idx = None
+        define_idx = None
+
+        # Find the last #include and the first valid #define
+        for i, line in enumerate(file_content):
+            if line.startswith('#include'):
+                include_idx = i
+
+            # Check if this is a #define not immediately following an #ifndef
+            if line.startswith('#define') and (i == 0 or not file_content[i - 1].strip().startswith('#ifndef')):
+                define_idx = i
+                break
+
+        if include_idx is None:
+            raise ValueError("Could not find any #include lines")
+
+        if include_idx is not None and define_idx is not None:
+            file_content.insert(include_idx + 1, define_statement + '\n')
+
+        with open(file_path, 'w') as file:
+            file.writelines(file_content)
+
+        print(f"Inserted {define_statement} into {file_path}")
+
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
+# Insert lines after a specific line in a file
+def insert_after_line(file_path, search_line, lines_to_insert):
+    print(f"Inserting lines into {file_path} after {search_line}")
+    try:
+        with open(file_path, 'r') as file:
+            file_content = file.readlines()
+
+        insert_idx = None
+        for i, line in enumerate(file_content):
+            if search_line in line:
+                insert_idx = i + 1
+                break
+
+        if insert_idx is None:
+            raise ValueError(f"Could not find the line: {search_line}")
+
+        for line in reversed(lines_to_insert):
+            file_content.insert(insert_idx, line + '\n')
+
+        with open(file_path, 'w') as file:
+            file.writelines(file_content)
+
+        print(f"Lines inserted into {file_path}")
+
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
+# Replace a line in a file with another
+def replace_line(file_path, search_line, replacement_line):
+    print(f"Replacing line in {file_path}: {search_line}")
+    try:
+        with open(file_path, 'r') as file:
+            file_content = file.readlines()
+
+        file_content = [line if search_line not in line else replacement_line + '\n' for line in file_content]
+
+        with open(file_path, 'w') as file:
+            file.writelines(file_content)
+
+        print(f"Replaced line in {file_path}")
+
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
+# Remove a line entirely from a file
+def remove_line(file_path, search_string):
+    print(f"Removing line from {file_path} containing {search_string}")
+    try:
+        with open(file_path, 'r') as file:
+            file_content = file.readlines()
+
+        file_content = [line for line in file_content if search_string not in line]
+
+        with open(file_path, 'w') as file:
+            file.writelines(file_content)
+
+        print(f"Removed line containing {search_string} from {file_path}")
+
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
+# Merge the tflite_full.h header files to include all projects
+def merge_tflite_full(tmpdir, project_ids, include_pattern):
+    all_includes = set()
+    
+    for p in project_ids:
+        suffix = "_" + p
+
+        f = os.path.join(tmpdir, p, "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h")
+        print(f"Editing file: {f}")
+
+        with open(f, 'r') as file:
+            file_content = file.readlines()
+
+        regex = re.compile(include_pattern)
+        for line in file_content:
+            if regex.search(line):
+                new_include_line = regex.sub(r'#include "tflite-model/trained_model_ops_define' + suffix + '.h"', line).strip()
+                all_includes.add(new_include_line)
+
+    f = os.path.join(tmpdir, project_ids[0], "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h")
+
+    with open(f, 'r') as file:
+        file_content = file.readlines()
+
+    last_include_idx = None
+    for i, line in enumerate(file_content):
+        if re.match(include_pattern, line):
+            last_include_idx = i
+
+    if last_include_idx is not None:
+        insertion_point = last_include_idx + 1
+        file_content[insertion_point:insertion_point] = [include + '\n' for include in all_includes]
+
+        with open(f, 'w') as file:
+            file.writelines(file_content)
+
+    with open(f, 'r') as file:
+        file_content = file.readlines()
+
+    regex_unlabeled = re.compile(r'#include\s+"tflite-model/trained_model_ops_define\.h"')
+    file_content = [line for line in file_content if not regex_unlabeled.match(line)]
+
+    with open(f, 'w') as file:
+        file.writelines(file_content)
 
 ## EDITING FILES
 
 # Use first project as target dir
 target_dir = os.path.join(tmpdir, project_ids[0])
+include_lines = []
 
 for p in project_ids:
 
     # suffix added to different functions and variables
     suffix = "_" + p
+    print(f"Processing Project{str(suffix)}")
 
     # 1. Edit compiled files in tflite-model/
     pdir = os.path.join(tmpdir, p, 'tflite-model')
@@ -199,6 +375,21 @@ for p in project_ids:
 
             # Rename filenames
             new_f = f.replace("_compiled", f"{suffix}_compiled")
+            os.rename(os.path.join(pdir, f), os.path.join(pdir, new_f))
+
+            # copy to target_dir (1st project)
+            if project_ids.index(p) > 0:
+                shutil.copy(os.path.join(pdir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
+
+        else:
+            patterns = [
+                r"tflite_learn_\d+"
+            ]
+            edit_file(os.path.join(pdir, f), patterns, suffix)
+
+            # Rename filenames
+            name, ext = os.path.splitext(f)
+            new_f = f"{name}{suffix}{ext}"
             os.rename(os.path.join(pdir, f), os.path.join(pdir, new_f))
 
             # copy to target_dir (1st project)
@@ -224,23 +415,56 @@ for p in project_ids:
     ]
     edit_file(f, patterns, suffix)
 
-    # 3. Merge model_variables.h into 1st project
+    # 3. Check if full tflite and make additional required modifications
+    if args.full_tflite:
+        # Insert #define EI_CLASSIFIER_USE_FULL_TFLITE 1 in model_metadata.h
+        f = os.path.join(tmpdir, p, "model-parameters/model_metadata.h")
+        insert_define_statement(f, "#define EI_CLASSIFIER_USE_FULL_TFLITE 1")
+
+        # Remove deprecated API reference in tflite_full.h
+        f = os.path.join(tmpdir, p, "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h")
+        str_rm = 'tree_ensemble_classifier'
+        remove_line(f, str_rm)
+
+        # Edit Zephyr cmake to use full tflite
+        str_ins = 'set(EI_SDK_FOLDER ../../)'
+        lines_to_insert = [
+            'set(PROJECT_ROOT_FOLDER ../../..)',
+            'set(FULL_TFLITE_FOLDER ${PROJECT_ROOT_FOLDER}/tensorflow-lite)'
+        ]
+        str_rep = 'LIST(APPEND EI_SOURCE_FILES "${EI_SDK_FOLDER}/tensorflow/lite/c/common.c")'
+        replacement_line = 'LIST(APPEND EI_SOURCE_FILES "${FULL_TFLITE_FOLDER}/tensorflow/lite/c/common.cc")'
+        f = os.path.join(tmpdir, p, "edge-impulse-sdk/cmake/zephyr/CMakeLists.txt")
+        insert_after_line(f, str_ins, lines_to_insert)
+        replace_line(f, str_rep, replacement_line)
+
+    # 4. Check if model has YOLOV5 and add suffix to ei_fill_result_struct.h inside #ifdef EI_HAS_YOLOV5
+    f = os.path.join(tmpdir, p, "model-parameters/model_variables.h")
+    if check_for_yolov5(f):
+        f = os.path.join(tmpdir, p, "edge-impulse-sdk/classifier/ei_fill_result_struct.h")
+        patterns = [
+            "ei_classifier_inferencing_categories"
+        ]
+        edit_file(f, patterns, suffix)
+
+    # 5. Merge model_variables.h into 1st project
     if project_ids.index(p) > 0:
         merge_model_variables(f, os.path.join(target_dir, "model-parameters/model_variables.h"))
 
-
-    # 4. Save intersection of trained_model_ops_define.h files
+    # 6. Save intersection of trained_model_ops_define.h files
     if project_ids.index(p) > 0:
         f = os.path.join(tmpdir, p, "tflite-model/trained_model_ops_define.h")
         f2 = os.path.join(target_dir, "tflite-model/trained_model_ops_define.h")
         merge_model_ops(f, f2)
 
+# If full tflite was used then merge the header files
+if args.full_tflite:
+    merge_tflite_full(tmpdir, project_ids, r'#include\s+"tflite-model/trained_model_ops_define\.h"')
 
-# 5. Copy template files to tmpdir
+# 7. Copy template files to tmpdir
 shutil.copytree('templates', target_dir, dirs_exist_ok=True)
 
-
-# 6 Get sample code to customize main.cpp
+# 8 Get sample code to customize main.cpp
 
 # Get impulses ID from model_variables.h
 with open(os.path.join(target_dir, 'model-parameters/model_variables.h'), 'r') as file:
@@ -268,7 +492,7 @@ for p in project_ids:
     signal.get_data = &get_signal_data_{p};
     res = process_impulse(&impulse_handle_{p}_{deploy_version}, &signal, &result, false);
     printf("process_impulse for project {p} returned: %d\\r\\n", res);
-    display_results(&result);
+    display_custom_results(&result, &impulse_{p}_{deploy_version});
     {newline}"""
 
     callback_function_code += f"""
@@ -280,8 +504,7 @@ static int get_signal_data_{p}(size_t offset, size_t length, float *out_ptr) {{
 }}
 {newline}"""
 
-
-# 7 Insert custom code in main.cpp
+# 9. Insert custom code in main.cpp
 with open(os.path.join(target_dir, 'source/main.cpp'), 'r') as file1:
     main_template = file1.readlines()
 
@@ -301,5 +524,5 @@ print("main.cpp edited")
 
 print("Merging done!")
 
-# 8 Create archive
+# 10. Create archive
 shutil.make_archive(os.path.join(args.out_directory, 'deploy'), 'zip', target_dir)

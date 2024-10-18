@@ -2,9 +2,12 @@
 __pycache__/
 out/*
 output/*
+output*
+tmp/*
 README.txt
 edge-impulse-sdk
 model-parameters
 tflite-model
 CMakeLists.txt
 .ei-block-config
+.vscode/*
