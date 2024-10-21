@@ -90,6 +90,33 @@ def edit_file(file_path, patterns, suffix):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
 
+def find_highest_fft_string(src_file_contents, dest_file_contents):
+    fft_macros_list = [f"EI_CLASSIFIER_LOAD_FFT_{32*num}" for num in [1, 2, 4, 8, 16, 32, 64, 128]]
+    print(fft_macros_list)
+    src_fft_values = []
+    dest_fft_values = []
+
+    for macro in fft_macros_list:
+        num1, line_num1, str1 = find_value(src_file_contents, macro)
+        num2, line_num2, str2 = find_value(dest_file_contents, macro)
+        src_file_contents.pop(line_num1)
+        dest_file_contents.pop(line_num2)
+        src_fft_values.append((num1))
+        dest_fft_values.append((num2))
+    print(src_fft_values, dest_fft_values)
+
+    # find the highest value
+    src_fft_value = src_fft_values.index('1')
+    dest_fft_value = dest_fft_values.index('1')
+    print(src_fft_value, dest_fft_value)
+
+    print(f"Highest FFT value: {fft_macros_list[max(src_fft_value, dest_fft_value)]}")
+    tmp = dest_file_contents[-1]
+    dest_file_contents[-1] = f"#define {fft_macros_list[max(src_fft_value, dest_fft_value)]} 1\n"
+    dest_file_contents.append(tmp)
+
+    return dest_file_contents
+
 def compare_values(val1, val2):
     pattern = r'#define\s+[A-Z_]+\s+(\d+)'
     num1 = re.findall(pattern, val1)
@@ -97,38 +124,50 @@ def compare_values(val1, val2):
     print(num1, num2)
 
 def replace_value(src_file_contents, dest_file_contents, macro_sting, choose_high_value = True):
-    try:
-        num1, line_num1, str1 = find_value(src_file_contents, macro_sting)
-        num2, line_num2, str2 = find_value(dest_file_contents, macro_sting)
-        print(num1, num2)
+    num1, line_num1, str1 = find_value(src_file_contents, macro_sting)
+    num2, line_num2, str2 = find_value(dest_file_contents, macro_sting)
+    print(num1, num2)
 
-        # replace the value in the dest_file
-        correct_num = max(int(num1), int(num2)) if choose_high_value else min(int(num1), int(num2))
-        dest_file_contents[line_num2] = re.sub(num2, str(correct_num), str2)
+    if num1 is None:
+        print(f"{macro_sting} not found in source file")
+        return dest_file_contents
 
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
+    if num2 is None:
+        print(f"{macro_sting} not found in destination file")
+        tmp = dest_file_contents[-1]
+        dest_file_contents[-1] = str1
+        dest_file_contents.append(tmp)
+        return dest_file_contents
+
+    # replace the value in the dest_file
+    correct_num = max(int(num1), int(num2)) if choose_high_value else min(int(num1), int(num2))
+    dest_file_contents[line_num2] = re.sub(num2, str(correct_num), str2)
 
     return dest_file_contents
 
 def compare_version(src_file_contents, dest_file_contents):
-    major_src = find_value(src_file_contents, "EI_STUDIO_VERSION_MAJOR")
-    minor_src = find_value(src_file_contents, "EI_STUDIO_VERSION_MINOR")
-    patch_src = find_value(src_file_contents, "EI_STUDIO_VERSION_PATCH")
+    major_src, _, _ = find_value(src_file_contents, "EI_STUDIO_VERSION_MAJOR")
+    minor_src, _, _ = find_value(src_file_contents, "EI_STUDIO_VERSION_MINOR")
+    patch_src, _, _ = find_value(src_file_contents, "EI_STUDIO_VERSION_PATCH")
 
-    major_dest = find_value(dest_file_contents, "EI_STUDIO_VERSION_MAJOR")
-    minor_dest = find_value(dest_file_contents, "EI_STUDIO_VERSION_MINOR")
-    patch_dest = find_value(dest_file_contents, "EI_STUDIO_VERSION_PATCH")
+    major_dest, _, _ = find_value(dest_file_contents, "EI_STUDIO_VERSION_MAJOR")
+    minor_dest, _, _ = find_value(dest_file_contents, "EI_STUDIO_VERSION_MINOR")
+    patch_dest, _, _ = find_value(dest_file_contents, "EI_STUDIO_VERSION_PATCH")
 
     if major_src != major_dest or minor_src != minor_dest or patch_src != patch_dest:
         print("Error: Version mismatch, rebuild the projects with --force-rebuild")
+        print(f"Source version: {major_src}.{minor_src}.{patch_src}")
+        print(f"Destination version: {major_dest}.{minor_dest}.{patch_dest}")
         sys.exit(1)
 
 def find_value(file_content, macro_string):
     for i, line in enumerate(file_content):
         if macro_string in line:
-            num = re.findall(r'\d+', line)
+            # remove the macros string and leave only the digit
+            line_tmp = line.replace(macro_string, "")
+            num = re.findall(r'\d+', line_tmp)
             return num[0], i, line
+    return None, None, None
 
 def merge_model_metadata(src_file, dest_file):
     try:
@@ -138,11 +177,21 @@ def merge_model_metadata(src_file, dest_file):
         with open(dest_file, 'r') as file2:
             dest_file_contents = file2.readlines()
 
+        compare_version(src_file_contents, dest_file_contents)
+
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_LABEL_COUNT")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_VISUAL_ANOMALY")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_SINGLE_FEATURE_INPUT", choose_high_value = False)
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_QUANTIZATION_ENABLED")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_LOAD_IMAGE_SCALING")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_DSP_PARAMS_SPECTRAL_ANALYSIS_ANALYSIS_TYPE_FFT")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_DSP_PARAMS_SPECTRAL_ANALYSIS_ANALYSIS_TYPE_WAVELET")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION_COUNT")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_FFT_INFO")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_NON_STANDARD_FFT_SIZES")
+
+        dest_file_contents = find_highest_fft_string(src_file_contents, dest_file_contents)
 
         with open(dest_file, 'w') as file2:
             file2.writelines("".join(dest_file_contents))
@@ -240,7 +289,6 @@ def merge_model_ops(src_file, dest_file):
 target_dir = os.path.join(args.out_directory, "output")
 # copy from the first project
 shutil.copytree(os.path.join(tmpdir, project_ids[0]), target_dir, dirs_exist_ok=True)
-
 
 for p in project_ids:
 
