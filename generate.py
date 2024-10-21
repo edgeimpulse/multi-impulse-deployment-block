@@ -90,6 +90,65 @@ def edit_file(file_path, patterns, suffix):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
 
+def compare_values(val1, val2):
+    pattern = r'#define\s+[A-Z_]+\s+(\d+)'
+    num1 = re.findall(pattern, val1)
+    num2 = re.findall(pattern, val2)
+    print(num1, num2)
+
+def replace_value(src_file_contents, dest_file_contents, macro_sting, choose_high_value = True):
+    try:
+        num1, line_num1, str1 = find_value(src_file_contents, macro_sting)
+        num2, line_num2, str2 = find_value(dest_file_contents, macro_sting)
+        print(num1, num2)
+
+        # replace the value in the dest_file
+        correct_num = max(int(num1), int(num2)) if choose_high_value else min(int(num1), int(num2))
+        dest_file_contents[line_num2] = re.sub(num2, str(correct_num), str2)
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+
+    return dest_file_contents
+
+def compare_version(src_file_contents, dest_file_contents):
+    major_src = find_value(src_file_contents, "EI_STUDIO_VERSION_MAJOR")
+    minor_src = find_value(src_file_contents, "EI_STUDIO_VERSION_MINOR")
+    patch_src = find_value(src_file_contents, "EI_STUDIO_VERSION_PATCH")
+
+    major_dest = find_value(dest_file_contents, "EI_STUDIO_VERSION_MAJOR")
+    minor_dest = find_value(dest_file_contents, "EI_STUDIO_VERSION_MINOR")
+    patch_dest = find_value(dest_file_contents, "EI_STUDIO_VERSION_PATCH")
+
+    if major_src != major_dest or minor_src != minor_dest or patch_src != patch_dest:
+        print("Error: Version mismatch, rebuild the projects with --force-rebuild")
+        sys.exit(1)
+
+def find_value(file_content, macro_string):
+    for i, line in enumerate(file_content):
+        if macro_string in line:
+            num = re.findall(r'\d+', line)
+            return num[0], i, line
+
+def merge_model_metadata(src_file, dest_file):
+    try:
+        # Open the first file for reading
+        with open(src_file, 'r') as file1:
+            src_file_contents = file1.readlines()
+        with open(dest_file, 'r') as file2:
+            dest_file_contents = file2.readlines()
+
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_LABEL_COUNT")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_VISUAL_ANOMALY")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_SINGLE_FEATURE_INPUT", choose_high_value = False)
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_QUANTIZATION_ENABLED")
+        dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_LOAD_IMAGE_SCALING")
+
+        with open(dest_file, 'w') as file2:
+            file2.writelines("".join(dest_file_contents))
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
 
 # Function to merge model_variables.h
 def merge_model_variables(src_file, dest_file):
@@ -177,8 +236,11 @@ def merge_model_ops(src_file, dest_file):
 
 ## EDITING FILES
 
-# Use first project as target dir
-target_dir = os.path.join(tmpdir, project_ids[0])
+# create a target dir
+target_dir = os.path.join(args.out_directory, "output")
+# copy from the first project
+shutil.copytree(os.path.join(tmpdir, project_ids[0]), target_dir, dirs_exist_ok=True)
+
 
 for p in project_ids:
 
@@ -209,7 +271,7 @@ for p in project_ids:
     # 2. Edit model_variables.h
     f = os.path.join(tmpdir, p, "model-parameters/model_variables.h")
 
-    # Patterns may be missing for anomaly detection blocks 
+    # Patterns may be missing for anomaly detection blocks
     patterns = [
         r"tflite_learn_\d+",
         r"tflite_graph_\d+",
@@ -235,6 +297,10 @@ for p in project_ids:
         f2 = os.path.join(target_dir, "tflite-model/trained_model_ops_define.h")
         merge_model_ops(f, f2)
 
+    if project_ids.index(p) > 0:
+        f1 = os.path.join(tmpdir, p, "model-parameters/model_metadata.h")
+        f2 = os.path.join(target_dir, "model-parameters/model_metadata.h")
+        merge_model_metadata(f1, f2)
 
 # 5. Copy template files to tmpdir
 shutil.copytree('templates', target_dir, dirs_exist_ok=True)
