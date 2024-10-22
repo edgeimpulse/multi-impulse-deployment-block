@@ -503,7 +503,7 @@ for p in project_ids:
                 shutil.copy(os.path.join(pdir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
 
 
-    # 2. Edit model_variables.h
+    # Edit model_variables.h
     f = os.path.join(tmpdir, p, "model-parameters/model_variables.h")
 
     # Patterns may be missing for anomaly detection blocks
@@ -521,43 +521,11 @@ for p in project_ids:
     ]
     edit_file(f, patterns, suffix)
 
-    # 3. Check if full tflite and make additional required modifications
-    if args.engine == 'tflite':
-        # Insert #define EI_CLASSIFIER_USE_FULL_TFLITE 1 in model_metadata.h
-        f = os.path.join(tmpdir, p, "model-parameters/model_metadata.h")
-        insert_define_statement(f, "#define EI_CLASSIFIER_USE_FULL_TFLITE 1")
-
-        # Remove deprecated API reference in tflite_full.h
-        f = os.path.join(tmpdir, p, "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h")
-        str_rm = 'tree_ensemble_classifier'
-        remove_line(f, str_rm)
-
-        # Edit Zephyr cmake to use full tflite
-        str_ins = 'set(EI_SDK_FOLDER ../../)'
-        lines_to_insert = [
-            'set(PROJECT_ROOT_FOLDER ../../..)',
-            'set(FULL_TFLITE_FOLDER ${PROJECT_ROOT_FOLDER}/tensorflow-lite)'
-        ]
-        str_rep = 'LIST(APPEND EI_SOURCE_FILES "${EI_SDK_FOLDER}/tensorflow/lite/c/common.c")'
-        replacement_line = 'LIST(APPEND EI_SOURCE_FILES "${FULL_TFLITE_FOLDER}/tensorflow/lite/c/common.cc")'
-        f = os.path.join(tmpdir, p, "edge-impulse-sdk/cmake/zephyr/CMakeLists.txt")
-        insert_after_line(f, str_ins, lines_to_insert)
-        replace_line(f, str_rep, replacement_line)
-
-    # 4. Check if model has YOLOV5 and add suffix to ei_fill_result_struct.h inside #ifdef EI_HAS_YOLOV5
-    f = os.path.join(tmpdir, p, "model-parameters/model_variables.h")
-    if check_for_yolov5(f):
-        f = os.path.join(tmpdir, p, "edge-impulse-sdk/classifier/ei_fill_result_struct.h")
-        patterns = [
-            "ei_classifier_inferencing_categories"
-        ]
-        edit_file(f, patterns, suffix)
-
-    # 5. Merge model_variables.h into 1st project
+    # Merge model_variables.h into 1st project
     if project_ids.index(p) > 0:
         merge_model_variables(f, os.path.join(target_dir, "model-parameters/model_variables.h"))
 
-    # 6. Save intersection of trained_model_ops_define.h files
+    # Save intersection of trained_model_ops_define.h files
     if project_ids.index(p) > 0:
         f = os.path.join(tmpdir, p, "tflite-model/trained_model_ops_define.h")
         f2 = os.path.join(target_dir, "tflite-model/trained_model_ops_define.h")
@@ -572,10 +540,10 @@ for p in project_ids:
 if args.engine == 'tflite':
     merge_tflite_full(tmpdir, project_ids, r'#include\s+"tflite-model/trained_model_ops_define\.h"')
 
-# 7. Copy template files to tmpdir
+# Copy template files to tmpdir
 shutil.copytree('templates', target_dir, dirs_exist_ok=True)
 
-# 8 Get sample code to customize main.cpp
+# Get sample code to customize main.cpp
 
 # Get impulses ID from model_variables.h
 with open(os.path.join(target_dir, 'model-parameters/model_variables.h'), 'r') as file:
@@ -615,7 +583,7 @@ static int get_signal_data_{p}(size_t offset, size_t length, float *out_ptr) {{
 }}
 {newline}"""
 
-# 9. Insert custom code in main.cpp
+# Insert custom code in main.cpp
 with open(os.path.join(target_dir, 'source/main.cpp'), 'r') as file1:
     main_template = file1.readlines()
 
@@ -635,5 +603,5 @@ print("main.cpp edited")
 
 print("Merging done!")
 
-# 10. Create archive
+# Create archive
 shutil.make_archive(os.path.join(args.out_directory, 'deploy'), 'zip', target_dir)
