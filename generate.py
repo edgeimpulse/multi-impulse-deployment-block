@@ -11,7 +11,7 @@ parser.add_argument("--float32", action="store_true", help="Use float32 model")
 parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
 parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='eon', help="Inferencing engine to use.")
 
-args, unknown = parser.parse_known_args()
+args = parser.parse_args()
 
 # Get projects API Keys
 #projectIDs = args.projects.replace(' ', '').split(',')
