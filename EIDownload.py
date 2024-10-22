@@ -138,7 +138,7 @@ class EIDownload:
 
             stdout = self.get_stdout(job_id, skip_line_no)
             for l in stdout:
-                logger.info(l, end='')
+                logger.info(l)
             skip_line_no = skip_line_no + len(stdout)
 
             if (not 'finished' in body['job']):
