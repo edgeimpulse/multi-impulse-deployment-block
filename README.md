@@ -6,6 +6,8 @@ Note: Implemented for EON projects only. Anomaly detection blocks not tested.
 
 By default, the quantized version is used when downloading the C++ libraries. To use float32, add the option `--float32` as an argument.
 
+Similarly by default the EON compiled model is used, if you want to use full tflite then add the option `--full-tflite` and be sure to include a recent version of tensorflow lite compiled for your device architecture in the root of your project in a folder named `tensorflow-lite`
+
 If you need a mix of quantized and float32, you can look at the `dzip.download_model` function call in generate.py and change the code accordingly. 
 
 By default, the block will download cached version of builds. You can force new builds using the `--force-build` option.
