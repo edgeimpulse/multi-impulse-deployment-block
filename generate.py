@@ -125,6 +125,37 @@ def find_highest_fft_string(src_file_contents, dest_file_contents):
 
     return dest_file_contents
 
+def find_common_type(src_file_contents, dest_file_contents, macro_string, type_dict):
+    src_val, line_num1, str1 = find_value(src_file_contents, macro_string)
+    dest_val, line_num2, str2 = find_value(dest_file_contents, macro_string)
+
+    print(f"Comparing {macro_string} values: {src_val}, {dest_val}")
+
+    if src_val is None or dest_val is None:
+        print(f"Unknown {macro_string}, not found in one or both of the projects")
+        sys.exit(1)
+
+    # get the value, raise error if not found
+    src_type = type_dict.get(src_val, None)
+    dest_type = type_dict.get(dest_val, None)
+
+    if src_type is None or dest_type is None:
+        print(f"Unknown type {macro_string}, not found in the type dictionary")
+        sys.exit(1)
+
+    # types match, nothing to do here
+    if (src_type == dest_type):
+        pass
+    # if one has type and the other does not
+    elif (dest_type == 0):
+        dest_file_contents[line_num2] = re.sub(str1)
+    # both have types of different values
+    else:
+        print(f"Error: {macro_string} type mismatch, can only merge projects with the same type")
+        sys.exit(1)
+
+    return dest_file_contents
+
 def compare_values(val1, val2):
     pattern = r'#define\s+[A-Z_]+\s+(\d+)'
     num1 = re.findall(pattern, val1)
@@ -171,10 +202,8 @@ def compare_version(src_file_contents, dest_file_contents):
 def find_value(file_content, macro_string):
     for i, line in enumerate(file_content):
         if macro_string in line:
-            # remove the macros string and leave only the digit
-            line_tmp = line.replace(macro_string, "")
-            num = re.findall(r'\d+', line_tmp)
-            return num[0], i, line
+            val = re.findall(r'#define\s+[A-Z_0-9]+\s+([A-Z_0-9]+)', line)
+            return val[0], i, line
     return None, None, None
 
 def merge_model_metadata(src_file, dest_file):
@@ -200,6 +229,8 @@ def merge_model_metadata(src_file, dest_file):
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_NON_STANDARD_FFT_SIZES")
 
         dest_file_contents = find_highest_fft_string(src_file_contents, dest_file_contents)
+        dest_file_contents = find_common_type(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER", object_detection_types)
+        dest_file_contents = find_common_type(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_ANOMALY", anomaly_types)
 
         with open(dest_file, 'w') as file2:
             file2.writelines("".join(dest_file_contents))
@@ -338,7 +369,6 @@ for p in project_ids:
             # copy to target_dir (1st project)
             if project_ids.index(p) > 0:
                 shutil.copy(os.path.join(pdir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
-
 
     # Edit model_variables.h
     f = os.path.join(tmpdir, p, "model-parameters/model_variables.h")
