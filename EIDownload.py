@@ -1,6 +1,8 @@
-# Module to build and download models using EI API
-
 import requests, json, time, re, os
+import logging
+
+logger = logging.getLogger("EIDownload")
+logging.basicConfig(level=logging.INFO)
 
 class EIDownload:
 
@@ -8,7 +10,7 @@ class EIDownload:
         self.api_key = api_key
         if project_id is None:
             self.project_id = self.set_project_id()
-            print("Project ID is " + str(self.project_id))
+            logger.info("Project ID is " + str(self.project_id))
         else:
             self.project_id = project_id
 
@@ -46,10 +48,10 @@ class EIDownload:
 
         # Check if build is available first
         if force_build or not self.build_available(engine, model_type):
-            print("No build artefact found for project " + str(self.project_id) + ", will build library first.")
+            logger.info("No build artefact found for project " + str(self.project_id) + ", will build library first.")
             job_id = self.build_model(engine, model_type)
             self.wait_for_job_completion(job_id)
-            print('Build OK')
+            logger.info('Build OK')
 
         url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/deployment/download"
         querystring = {
@@ -69,7 +71,7 @@ class EIDownload:
 
         with open(os.path.join(out_directory, fname), 'wb') as f:
             f.write(response.content)
-        print('Export ZIP saved in: ' + os.path.join(out_directory, fname) + ' (' + str(len(response.content)) + ' Bytes)')
+        logger.info('Export ZIP saved in: ' + os.path.join(out_directory, fname) + ' (' + str(len(response.content)) + ' Bytes)')
 
         return os.path.join(out_directory, fname)
 
@@ -136,15 +138,15 @@ class EIDownload:
 
             stdout = self.get_stdout(job_id, skip_line_no)
             for l in stdout:
-                print(l, end='')
+                logger.info(l, end='')
             skip_line_no = skip_line_no + len(stdout)
 
             if (not 'finished' in body['job']):
-                print('Still building...')
+                logger.info('Still building...')
                 time.sleep(1)
                 continue
             if (not body['job']['finishedSuccessful']):
-                print(f"Job did not finish successfully. Response: {response.text}")
+                logger.error(f"Job did not finish successfully. Response: {response.text}")
                 raise Exception('Job failed')
             else:
                 break

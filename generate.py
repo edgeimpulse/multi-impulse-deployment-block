@@ -2,6 +2,7 @@ import os, sys, argparse, json, tempfile, re, shutil
 from zipfile import ZipFile
 from EIDownload import EIDownload
 from utils import *
+import logging
 
 parser = argparse.ArgumentParser(description='Multi-impulse transformation block')
 parser.add_argument('--api-keys', type=str, help='List of API Keys', required=False)
@@ -13,6 +14,9 @@ parser.add_argument("--force-build", action="store_true", help="Force build libr
 parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='eon', help="Inferencing engine to use.")
 
 args = parser.parse_args()
+
+logger = logging.getLogger("main")
+logging.basicConfig(level=logging.INFO)
 
 # Get projects API Keys
 #projectIDs = args.projects.replace(' ', '').split(',')
@@ -68,7 +72,7 @@ else:
 
 # Generic function to add suffix to search patterns in a file
 def edit_file(file_path, patterns, suffix):
-    print("Editing " + file_path)
+    logger.info("Editing " + file_path)
     try:
         with open(file_path, 'r') as file:
             file_content = file.read()
@@ -86,21 +90,21 @@ def edit_file(file_path, patterns, suffix):
 
         # Search each pattern in file and call add_suffix
         for pattern in patterns:
-            print("pattern: " + pattern)
+            logger.debug("pattern: " + pattern)
             file_content = re.sub(pattern, add_suffix, file_content)
 
         with open(file_path, 'w') as file:
             file.write(file_content)
 
-        print(f"{file_path} edited")
+        logger.debug(f"{file_path} edited")
     except FileNotFoundError:
-        print(f"File not found: {file_path}")
+        logger.error(f"File not found: {file_path}")
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        logger.error(f"An error occurred: {str(e)}")
 
 def find_highest_fft_string(src_file_contents, dest_file_contents):
     fft_macros_list = [f"EI_CLASSIFIER_LOAD_FFT_{32*num}" for num in [1, 2, 4, 8, 16, 32, 64, 128]]
-    print(fft_macros_list)
+    logger.debug(fft_macros_list)
     src_fft_values = []
     dest_fft_values = []
 
@@ -111,14 +115,14 @@ def find_highest_fft_string(src_file_contents, dest_file_contents):
         dest_file_contents.pop(line_num2)
         src_fft_values.append((num1))
         dest_fft_values.append((num2))
-    print(src_fft_values, dest_fft_values)
+    logger.debug(src_fft_values, dest_fft_values)
 
     # find the highest value
     src_fft_value = src_fft_values.index('1')
     dest_fft_value = dest_fft_values.index('1')
-    print(src_fft_value, dest_fft_value)
+    logger.debug(src_fft_value, dest_fft_value)
 
-    print(f"Highest FFT value: {fft_macros_list[max(src_fft_value, dest_fft_value)]}")
+    logger.info(f"Highest FFT value: {fft_macros_list[max(src_fft_value, dest_fft_value)]}")
     tmp = dest_file_contents[-1]
     dest_file_contents[-1] = f"#define {fft_macros_list[max(src_fft_value, dest_fft_value)]} 1\n"
     dest_file_contents.append(tmp)
@@ -129,10 +133,10 @@ def find_common_type(src_file_contents, dest_file_contents, macro_string, type_d
     src_val, line_num1, str1 = find_value(src_file_contents, macro_string)
     dest_val, line_num2, str2 = find_value(dest_file_contents, macro_string)
 
-    print(f"Comparing {macro_string} values: {src_val}, {dest_val}")
+    logger.debug(f"Comparing {macro_string} values: {src_val}, {dest_val}")
 
     if src_val is None or dest_val is None:
-        print(f"Unknown {macro_string}, not found in one or both of the projects")
+        logger.error(f"Unknown {macro_string}, not found in one or both of the projects")
         sys.exit(1)
 
     # get the value, raise error if not found
@@ -140,7 +144,7 @@ def find_common_type(src_file_contents, dest_file_contents, macro_string, type_d
     dest_type = type_dict.get(dest_val, None)
 
     if src_type is None or dest_type is None:
-        print(f"Unknown type {macro_string}, not found in the type dictionary")
+        logger.error(f"Unknown type {macro_string}, not found in the type dictionary")
         sys.exit(1)
 
     # types match, nothing to do here
@@ -151,7 +155,7 @@ def find_common_type(src_file_contents, dest_file_contents, macro_string, type_d
         dest_file_contents[line_num2] = re.sub(str1)
     # both have types of different values
     else:
-        print(f"Error: {macro_string} type mismatch, can only merge projects with the same type")
+        logger.error(f"Error: {macro_string} type mismatch, can only merge projects with the same type")
         sys.exit(1)
 
     return dest_file_contents
@@ -165,14 +169,14 @@ def compare_values(val1, val2):
 def replace_value(src_file_contents, dest_file_contents, macro_sting, choose_high_value = True):
     num1, line_num1, str1 = find_value(src_file_contents, macro_sting)
     num2, line_num2, str2 = find_value(dest_file_contents, macro_sting)
-    print(num1, num2)
+    logger.debug(num1, num2)
 
     if num1 is None:
-        print(f"{macro_sting} not found in source file")
+        logger.debug(f"{macro_sting} not found in source file")
         return dest_file_contents
 
     if num2 is None:
-        print(f"{macro_sting} not found in destination file")
+        logger.debug(f"{macro_sting} not found in destination file")
         tmp = dest_file_contents[-1]
         dest_file_contents[-1] = str1
         dest_file_contents.append(tmp)
@@ -194,9 +198,9 @@ def compare_version(src_file_contents, dest_file_contents):
     patch_dest, _, _ = find_value(dest_file_contents, "EI_STUDIO_VERSION_PATCH")
 
     if major_src != major_dest or minor_src != minor_dest or patch_src != patch_dest:
-        print("Error: Version mismatch, rebuild the projects with --force-rebuild")
-        print(f"Source version: {major_src}.{minor_src}.{patch_src}")
-        print(f"Destination version: {major_dest}.{minor_dest}.{patch_dest}")
+        logger.error("Error: Version mismatch, rebuild the projects with --force-rebuild")
+        logger.error(f"Source version: {major_src}.{minor_src}.{patch_src}")
+        logger.error(f"Destination version: {major_dest}.{minor_dest}.{patch_dest}")
         sys.exit(1)
 
 def find_value(file_content, macro_string):
@@ -236,7 +240,7 @@ def merge_model_metadata(src_file, dest_file):
             file2.writelines("".join(dest_file_contents))
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 # Function to merge model_variables.h
 def merge_model_variables(src_file, dest_file):
@@ -294,10 +298,10 @@ def merge_model_variables(src_file, dest_file):
         with open(dest_file, 'w') as file2:
             file2.writelines(file2_contents)
 
-        print("Portion copied and inserted successfully!")
+        logger.info("Portion copied and inserted successfully!")
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 # Function to keep intersection of model_ops_define.h
 def merge_model_ops(src_file, dest_file):
@@ -316,10 +320,10 @@ def merge_model_ops(src_file, dest_file):
             for line in intersection:
                 file1.write(line + '\n')
 
-        print("Merge model_ops done")
+        logger.info("Merge model_ops done")
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 ## EDITING FILES
 
@@ -333,7 +337,7 @@ for p in project_ids:
 
     # suffix added to different functions and variables
     suffix = "_" + p
-    print(f"Processing Project{str(suffix)}")
+    logger.info(f"Processing Project{str(suffix)}")
 
     # 1. Edit compiled files in tflite-model/
     pdir = os.path.join(tmpdir, p, 'tflite-model')
@@ -465,12 +469,12 @@ main_template[idx:idx] = run_classifier_code
 idx = main_template.index("// callback functions inserted here\n") + 1
 main_template[idx:idx] = callback_function_code
 
-print("Editing main.cpp")
+logger.info("Editing main.cpp")
 with open(os.path.join(target_dir, 'source/main.cpp'), 'w') as file1:
     file1.writelines(main_template)
-print("main.cpp edited")
+logger.info("main.cpp edited")
 
-print("Merging done!")
+logger.info("Merging done!")
 
 # Create archive
 shutil.make_archive(os.path.join(args.out_directory, 'deploy'), 'zip', target_dir)
