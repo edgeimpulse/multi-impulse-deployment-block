@@ -9,7 +9,7 @@ parser.add_argument('--tmp-directory', type=str, required=False)
 parser.add_argument('--out-directory', type=str, default='/home/output', required=False)
 parser.add_argument("--float32", action="store_true", help="Use float32 model")
 parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
-parser.add_argument("--full-tflite", action="store_true", help="Use full tflite compiler and NOT EON compiler")
+parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='eon', help="Inferencing engine to use.")
 
 args, unknown = parser.parse_known_args()
 
@@ -52,16 +52,11 @@ if not (args.projects and args.tmp_directory):
         else:
             quantized = True
 
-        if args.full_tflite:
-            eon = False
-        else:
-            eon = True
-
-        zipfile_path = dzip.download_model(download_path, eon = eon, quantized = quantized, force_build = args.force_build)
+        zipfile_path = dzip.download_model(download_path, eon = (args.engine == 'eon'), quantized = quantized, force_build = args.force_build)
 
         with ZipFile(zipfile_path, 'r') as zObject:
             zObject.extractall(download_path)
-        os.remove(zipfile_path)
+        #os.remove(zipfile_path)
 
 else:
     project_ids = args.projects.split(',')
@@ -527,7 +522,7 @@ for p in project_ids:
     edit_file(f, patterns, suffix)
 
     # 3. Check if full tflite and make additional required modifications
-    if args.full_tflite:
+    if args.engine == 'tflite':
         # Insert #define EI_CLASSIFIER_USE_FULL_TFLITE 1 in model_metadata.h
         f = os.path.join(tmpdir, p, "model-parameters/model_metadata.h")
         insert_define_statement(f, "#define EI_CLASSIFIER_USE_FULL_TFLITE 1")
@@ -574,7 +569,7 @@ for p in project_ids:
         merge_model_metadata(f1, f2)
 
 # If full tflite was used then merge the header files
-if args.full_tflite:
+if args.engine == 'tflite':
     merge_tflite_full(tmpdir, project_ids, r'#include\s+"tflite-model/trained_model_ops_define\.h"')
 
 # 7. Copy template files to tmpdir

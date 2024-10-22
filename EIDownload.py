@@ -14,7 +14,7 @@ class EIDownload:
 
     def get_project_id(self):
         return self.project_id
-    
+
     def set_project_id(self):
         url = f"https://studio.edgeimpulse.com/v1/api/projects"
         headers = {
@@ -27,7 +27,7 @@ class EIDownload:
         body = json.loads(response.text)
         if (not body['success']):
             raise Exception(body['error'])
-        
+
         return body['projects'][0]['id']
 
 
@@ -43,10 +43,10 @@ class EIDownload:
             model_type = 'int8'
         else:
             model_type = 'float32'
-    
+
         # Check if build is available first
-        if force_build or not self.build_available(engine, model_type):     
-            print("No build artefact found for project " + str(self.project_id) + ", will build library first.")  
+        if force_build or not self.build_available(engine, model_type):
+            print("No build artefact found for project " + str(self.project_id) + ", will build library first.")
             job_id = self.build_model(engine, model_type)
             self.wait_for_job_completion(job_id)
             print('Build OK')
@@ -70,9 +70,9 @@ class EIDownload:
         with open(os.path.join(out_directory, fname), 'wb') as f:
             f.write(response.content)
         print('Export ZIP saved in: ' + os.path.join(out_directory, fname) + ' (' + str(len(response.content)) + ' Bytes)')
-        
+
         return os.path.join(out_directory, fname)
-    
+
     def build_available(self, engine, model_type):
         url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/deployment"
         querystring = {"type": "zip", "modelType": model_type, "engine": engine}
@@ -86,7 +86,7 @@ class EIDownload:
         body = json.loads(response.text)
         if (not body['success']):
             raise Exception(body['error'])
-        
+
         return body['hasDeployment']
 
 
