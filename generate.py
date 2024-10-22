@@ -1,6 +1,7 @@
 import os, sys, argparse, json, tempfile, re, shutil
 from zipfile import ZipFile
 from EIDownload import EIDownload
+from utils import *
 
 parser = argparse.ArgumentParser(description='Multi-impulse transformation block')
 parser.add_argument('--api-keys', type=str, help='List of API Keys', required=False)
@@ -56,7 +57,7 @@ if not (args.projects and args.tmp_directory):
 
         with ZipFile(zipfile_path, 'r') as zObject:
             zObject.extractall(download_path)
-        #os.remove(zipfile_path)
+        os.remove(zipfile_path)
 
 else:
     project_ids = args.projects.split(',')
@@ -289,170 +290,6 @@ def merge_model_ops(src_file, dest_file):
     except FileNotFoundError as e:
         print(f"Error: {e}")
 
-# Function to check for YOLOV5
-def check_for_yolov5(file_path):
-    modelHasYOLOV5 = False
-    print(f"Checking for YOLOV5 in {file_path}")
-    try:
-        with open(file_path, 'r') as file:
-            file_content = file.read()
-            if "YOLOV5" in file_content:
-                modelHasYOLOV5 = True
-                print(f"YOLOV5 found")
-            else:
-                print(f"YOLOV5 not found")
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
-    return modelHasYOLOV5
-
-# Function to add #define
-def insert_define_statement(file_path, define_statement):
-    print(f"Inserting {define_statement} into {file_path}")
-    try:
-        with open(file_path, 'r') as file:
-            file_content = file.readlines()
-
-        include_idx = None
-        define_idx = None
-
-        # Find the last #include and the first valid #define
-        for i, line in enumerate(file_content):
-            if line.startswith('#include'):
-                include_idx = i
-
-            # Check if this is a #define not immediately following an #ifndef
-            if line.startswith('#define') and (i == 0 or not file_content[i - 1].strip().startswith('#ifndef')):
-                define_idx = i
-                break
-
-        if include_idx is None:
-            raise ValueError("Could not find any #include lines")
-
-        if include_idx is not None and define_idx is not None:
-            file_content.insert(include_idx + 1, define_statement + '\n')
-
-        with open(file_path, 'w') as file:
-            file.writelines(file_content)
-
-        print(f"Inserted {define_statement} into {file_path}")
-
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-
-# Insert lines after a specific line in a file
-def insert_after_line(file_path, search_line, lines_to_insert):
-    print(f"Inserting lines into {file_path} after {search_line}")
-    try:
-        with open(file_path, 'r') as file:
-            file_content = file.readlines()
-
-        insert_idx = None
-        for i, line in enumerate(file_content):
-            if search_line in line:
-                insert_idx = i + 1
-                break
-
-        if insert_idx is None:
-            raise ValueError(f"Could not find the line: {search_line}")
-
-        for line in reversed(lines_to_insert):
-            file_content.insert(insert_idx, line + '\n')
-
-        with open(file_path, 'w') as file:
-            file.writelines(file_content)
-
-        print(f"Lines inserted into {file_path}")
-
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-
-# Replace a line in a file with another
-def replace_line(file_path, search_line, replacement_line):
-    print(f"Replacing line in {file_path}: {search_line}")
-    try:
-        with open(file_path, 'r') as file:
-            file_content = file.readlines()
-
-        file_content = [line if search_line not in line else replacement_line + '\n' for line in file_content]
-
-        with open(file_path, 'w') as file:
-            file.writelines(file_content)
-
-        print(f"Replaced line in {file_path}")
-
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-
-# Remove a line entirely from a file
-def remove_line(file_path, search_string):
-    print(f"Removing line from {file_path} containing {search_string}")
-    try:
-        with open(file_path, 'r') as file:
-            file_content = file.readlines()
-
-        file_content = [line for line in file_content if search_string not in line]
-
-        with open(file_path, 'w') as file:
-            file.writelines(file_content)
-
-        print(f"Removed line containing {search_string} from {file_path}")
-
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-
-# Merge the tflite_full.h header files to include all projects
-def merge_tflite_full(tmpdir, project_ids, include_pattern):
-    all_includes = set()
-
-    for p in project_ids:
-        suffix = "_" + p
-
-        f = os.path.join(tmpdir, p, "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h")
-        print(f"Editing file: {f}")
-
-        with open(f, 'r') as file:
-            file_content = file.readlines()
-
-        regex = re.compile(include_pattern)
-        for line in file_content:
-            if regex.search(line):
-                new_include_line = regex.sub(r'#include "tflite-model/trained_model_ops_define' + suffix + '.h"', line).strip()
-                all_includes.add(new_include_line)
-
-    f = os.path.join(tmpdir, project_ids[0], "edge-impulse-sdk/classifier/inferencing_engines/tflite_full.h")
-
-    with open(f, 'r') as file:
-        file_content = file.readlines()
-
-    last_include_idx = None
-    for i, line in enumerate(file_content):
-        if re.match(include_pattern, line):
-            last_include_idx = i
-
-    if last_include_idx is not None:
-        insertion_point = last_include_idx + 1
-        file_content[insertion_point:insertion_point] = [include + '\n' for include in all_includes]
-
-        with open(f, 'w') as file:
-            file.writelines(file_content)
-
-    with open(f, 'r') as file:
-        file_content = file.readlines()
-
-    regex_unlabeled = re.compile(r'#include\s+"tflite-model/trained_model_ops_define\.h"')
-    file_content = [line for line in file_content if not regex_unlabeled.match(line)]
-
-    with open(f, 'w') as file:
-        file.writelines(file_content)
-
 ## EDITING FILES
 
 # create a target dir
@@ -536,9 +373,11 @@ for p in project_ids:
         f2 = os.path.join(target_dir, "model-parameters/model_metadata.h")
         merge_model_metadata(f1, f2)
 
-# If full tflite was used then merge the header files
-if args.engine == 'tflite':
-    merge_tflite_full(tmpdir, project_ids, r'#include\s+"tflite-model/trained_model_ops_define\.h"')
+# TODO: merge the resolvers
+# if args.engine == 'tflite':
+#     f = os.path.join(tmpdir, p, "tflite-model/tflite-resolver.h")
+#     f2 = os.path.join(target_dir, "tflite-model/tflite-resolver.h")
+#     merge_model_ops(f, f2)
 
 # Copy template files to tmpdir
 shutil.copytree('templates', target_dir, dirs_exist_ok=True)
