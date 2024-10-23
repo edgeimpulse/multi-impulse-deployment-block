@@ -316,9 +316,9 @@ def merge_model_ops(src_file, dest_file):
         intersection = [line for line in lines_file1 if line in lines_file2]
 
         # Write the intersection back to src_file
-        with open(dest_file, 'w') as file1:
+        with open(dest_file, 'w') as file:
             for line in intersection:
-                file1.write(line + '\n')
+                file.write(line + '\n')
 
         logger.info("Merge model_ops done")
 
@@ -333,15 +333,34 @@ target_dir = os.path.join(args.out_directory, "output")
 shutil.copytree(os.path.join(tmpdir, project_ids[0]), target_dir, dirs_exist_ok=True)
 include_lines = []
 
+# Save intersection of trained_model_ops_define.h files
+f1 = os.path.join(tmpdir, project_ids[0], "tflite-model/trained_model_ops_define.h")
+f2 = os.path.join(tmpdir, project_ids[1], "tflite-model/trained_model_ops_define.h")
+merge_model_ops(f1, f2)
+shutil.copy(f1, os.path.join(target_dir, "tflite-model/trained_model_ops_define.h"))
+
+# merge the resolvers if tflite
+if args.engine == 'tflite':
+    f1 = os.path.join(tmpdir, project_ids[0], "tflite-model/tflite-resolver.h")
+    f2 = os.path.join(tmpdir, project_ids[1], "tflite-model/tflite-resolver.h")
+    merge_model_ops(f1, f2)
+    shutil.copy(f1, os.path.join(target_dir, "tflite-model/tflite-resolver.h"))
+
+# merge the model metadata
+f1 = os.path.join(tmpdir, project_ids[0], "model-parameters/model_metadata.h")
+f2 = os.path.join(tmpdir, project_ids[1], "model-parameters/model_metadata.h")
+merge_model_metadata(f1, f2)
+shutil.copy(f1, os.path.join(target_dir, "model-parameters/model_metadata.h"))
+
 for p in project_ids:
 
     # suffix added to different functions and variables
     suffix = "_" + p
     logger.info(f"Processing Project{str(suffix)}")
 
-    # 1. Edit compiled files in tflite-model/
-    pdir = os.path.join(tmpdir, p, 'tflite-model')
-    for f in os.listdir(pdir):
+    # Edit compiled files in tflite-model/
+    model_dir = os.path.join(tmpdir, p, 'tflite-model')
+    for f in os.listdir(model_dir):
         if "compiled" in f:
 
             # List of patterns to look for and append with suffix
@@ -349,30 +368,30 @@ for p in project_ids:
             patterns = [
                 r"tflite_learn_\d+"
             ]
-            edit_file(os.path.join(pdir, f), patterns, suffix)
+            edit_file(os.path.join(model_dir, f), patterns, suffix)
 
             # Rename filenames
             new_f = f.replace("_compiled", f"{suffix}_compiled")
-            os.rename(os.path.join(pdir, f), os.path.join(pdir, new_f))
+            os.rename(os.path.join(model_dir, f), os.path.join(model_dir, new_f))
 
             # copy to target_dir (1st project)
             if project_ids.index(p) > 0:
-                shutil.copy(os.path.join(pdir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
+                shutil.copy(os.path.join(model_dir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
 
-        else:
+        elif f.startswith("tflite_learn_"):
             patterns = [
                 r"tflite_learn_\d+"
             ]
-            edit_file(os.path.join(pdir, f), patterns, suffix)
+            edit_file(os.path.join(model_dir, f), patterns, suffix)
 
             # Rename filenames
             name, ext = os.path.splitext(f)
             new_f = f"{name}{suffix}{ext}"
-            os.rename(os.path.join(pdir, f), os.path.join(pdir, new_f))
+            os.rename(os.path.join(model_dir, f), os.path.join(model_dir, new_f))
 
             # copy to target_dir (1st project)
             if project_ids.index(p) > 0:
-                shutil.copy(os.path.join(pdir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
+                shutil.copy(os.path.join(model_dir, new_f), os.path.join(target_dir, 'tflite-model', new_f))
 
     # Edit model_variables.h
     f = os.path.join(tmpdir, p, "model-parameters/model_variables.h")
@@ -395,23 +414,6 @@ for p in project_ids:
     # Merge model_variables.h into 1st project
     if project_ids.index(p) > 0:
         merge_model_variables(f, os.path.join(target_dir, "model-parameters/model_variables.h"))
-
-    # Save intersection of trained_model_ops_define.h files
-    if project_ids.index(p) > 0:
-        f = os.path.join(tmpdir, p, "tflite-model/trained_model_ops_define.h")
-        f2 = os.path.join(target_dir, "tflite-model/trained_model_ops_define.h")
-        merge_model_ops(f, f2)
-
-    if project_ids.index(p) > 0:
-        f1 = os.path.join(tmpdir, p, "model-parameters/model_metadata.h")
-        f2 = os.path.join(target_dir, "model-parameters/model_metadata.h")
-        merge_model_metadata(f1, f2)
-
-# TODO: merge the resolvers
-# if args.engine == 'tflite':
-#     f = os.path.join(tmpdir, p, "tflite-model/tflite-resolver.h")
-#     f2 = os.path.join(target_dir, "tflite-model/tflite-resolver.h")
-#     merge_model_ops(f, f2)
 
 # Copy template files to tmpdir
 shutil.copytree('templates', target_dir, dirs_exist_ok=True)

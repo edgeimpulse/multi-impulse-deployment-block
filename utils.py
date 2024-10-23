@@ -20,22 +20,6 @@ object_detection_types = {
     "EI_CLASSIFIER_LAST_LAYER_YOLOV2": 11
 }
 
-# Function to check for YOLOV5
-def check_for_yolov5(file_path):
-    modelHasYOLOV5 = False
-    print(f"Checking for YOLOV5 in {file_path}")
-    try:
-        with open(file_path, 'r') as file:
-            file_content = file.read()
-            if "YOLOV5" in file_content:
-                modelHasYOLOV5 = True
-                print(f"YOLOV5 found")
-            else:
-                print(f"YOLOV5 not found")
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
-    return modelHasYOLOV5
-
 # Function to add #define
 def insert_define_statement(file_path, define_statement):
     print(f"Inserting {define_statement} into {file_path}")
