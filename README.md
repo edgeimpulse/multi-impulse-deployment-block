@@ -14,8 +14,10 @@ By default, the block will download cached version of builds. You can force new 
 
 ### Locally
 
-Retrieve API Keys of your projects and run the generate.py command as follows:
+Install the requirments
+```pip install -r requirements.txt```
 
+Retrieve API Keys of your projects and run the generate.py command as follows:
 ```python generate.py --out-directory output --api-keys ei_0b0e...,ei_acde...```
 
 ### Docker
