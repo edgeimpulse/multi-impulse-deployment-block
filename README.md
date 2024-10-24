@@ -18,7 +18,7 @@ Install the requirments
 ```pip install -r requirements.txt```
 
 Retrieve API Keys of your projects and run the generate.py command as follows:
-```python generate.py --out-directory output --api-keys ei_0b0e...,ei_acde...```
+```python generate.py --out-directory ./output --api-keys "ei_0b0e...", "ei_acde..."```
 
 ### Docker
 
@@ -26,7 +26,7 @@ Build the container:
 ```docker build -t multi-impulse .```
 
 Then run:
-```docker run --rm -it -v $PWD:/home multi-impulse --api-keys ei_0b0e...,ei_acde...```
+```docker run --rm -it -v $PWD:/home multi-impulse --api-keys "ei_0b0e...", "ei_acde..."```
 
 ### Custom deployment block
 
