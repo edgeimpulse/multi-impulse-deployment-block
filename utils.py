@@ -174,26 +174,32 @@ def find_highest_fft_string(src_file_contents, dest_file_contents):
     for macro in fft_macros_list:
         num1, line_num1, str1 = find_value(src_file_contents, macro)
         num2, line_num2, str2 = find_value(dest_file_contents, macro)
+
         src_file_contents.pop(line_num1)
         dest_file_contents.pop(line_num2)
         src_fft_values.append((num1))
         dest_fft_values.append((num2))
+
     logger.debug(f'{src_fft_values}, {dest_fft_values}')
+    logger.debug(f'{line_num1}, {line_num2}')
 
     # find the highest value
     try:
-        src_fft_value = src_fft_values.index('1')
+        # Ensure the list is reversed to get the highest value (in case multiple FFT are in one metadata file)
+        src_fft_value = len(src_fft_values) - 1 - src_fft_values[::-1].index('1')
     except ValueError: # If no FFT in the impulse
         src_fft_value = 0
 
     try:
-        dest_fft_value = dest_fft_values.index('1')
-    except ValueError: # If no FFT in the impulse
+        dest_fft_value = len(dest_fft_values) - 1 - dest_fft_values[::-1].index('1')
+    except ValueError:
         dest_fft_value = 0
 
     logger.debug(f'{src_fft_value}, {dest_fft_value}')
 
-    logger.info(f"Highest FFT value: {fft_macros_list[max(src_fft_value, dest_fft_value)]}")
+    max_fft_macro = fft_macros_list[max(src_fft_value, dest_fft_value)]
+
+    logger.info(f"Highest FFT value: {max_fft_macro}")
     tmp = dest_file_contents[-1]
     dest_file_contents[-1] = f"#define {fft_macros_list[max(src_fft_value, dest_fft_value)]} 1\n"
     dest_file_contents.append(tmp)
@@ -302,7 +308,6 @@ def merge_model_metadata(src_file, dest_file):
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION_COUNT")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_FFT_INFO")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_NON_STANDARD_FFT_SIZES")
-
         dest_file_contents = find_highest_fft_string(src_file_contents, dest_file_contents)
         dest_file_contents = find_common_type(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER", object_detection_types)
         dest_file_contents = find_common_type(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_ANOMALY", anomaly_types)

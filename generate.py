@@ -13,7 +13,7 @@ parser.add_argument("--float32", action="store_true", help="Use float32 model")
 parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
 parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='eon', help="Inferencing engine to use.")
 
-args = parser.parse_args()
+args, unknown = parser.parse_known_args()
 
 logging.basicConfig()
 logger = logging.getLogger("main")
@@ -80,20 +80,20 @@ include_lines = []
 f1 = os.path.join(tmpdir, project_ids[0], "tflite-model/trained_model_ops_define.h")
 f2 = os.path.join(tmpdir, project_ids[1], "tflite-model/trained_model_ops_define.h")
 merge_model_ops(f1, f2)
-shutil.copy(f1, os.path.join(target_dir, "tflite-model/trained_model_ops_define.h"))
+shutil.copy(f2, os.path.join(target_dir, "tflite-model/trained_model_ops_define.h"))
 
 # merge the resolvers if tflite
 if args.engine == 'tflite':
     f1 = os.path.join(tmpdir, project_ids[0], "tflite-model/tflite-resolver.h")
     f2 = os.path.join(tmpdir, project_ids[1], "tflite-model/tflite-resolver.h")
     merge_model_ops(f1, f2)
-    shutil.copy(f1, os.path.join(target_dir, "tflite-model/tflite-resolver.h"))
+    shutil.copy(f2, os.path.join(target_dir, "tflite-model/tflite-resolver.h"))
 
 # merge the model metadata
 f1 = os.path.join(tmpdir, project_ids[0], "model-parameters/model_metadata.h")
 f2 = os.path.join(tmpdir, project_ids[1], "model-parameters/model_metadata.h")
 merge_model_metadata(f1, f2)
-shutil.copy(f1, os.path.join(target_dir, "model-parameters/model_metadata.h"))
+shutil.copy(f2, os.path.join(target_dir, "model-parameters/model_metadata.h"))
 
 for p in project_ids:
 
