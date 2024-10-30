@@ -2,8 +2,9 @@ import logging
 import sys
 import re
 
+logging.basicConfig()
 logger = logging.getLogger("utils")
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 anomaly_types = {
     "EI_ANOMALY_TYPE_UNKNOWN": 0,
@@ -166,7 +167,7 @@ def edit_file(file_path, patterns, suffix):
 
 def find_highest_fft_string(src_file_contents, dest_file_contents):
     fft_macros_list = [f"EI_CLASSIFIER_LOAD_FFT_{32*num}" for num in [1, 2, 4, 8, 16, 32, 64, 128]]
-    logger.debug(fft_macros_list)
+    logger.debug(f'{fft_macros_list}')
     src_fft_values = []
     dest_fft_values = []
 
@@ -177,12 +178,20 @@ def find_highest_fft_string(src_file_contents, dest_file_contents):
         dest_file_contents.pop(line_num2)
         src_fft_values.append((num1))
         dest_fft_values.append((num2))
-    logger.debug(src_fft_values, dest_fft_values)
+    logger.debug(f'{src_fft_values}, {dest_fft_values}')
 
     # find the highest value
-    src_fft_value = src_fft_values.index('1')
-    dest_fft_value = dest_fft_values.index('1')
-    logger.debug(src_fft_value, dest_fft_value)
+    try:
+        src_fft_value = src_fft_values.index('1')
+    except ValueError: # If no FFT in the impulse
+        src_fft_value = 0
+
+    try:
+        dest_fft_value = dest_fft_values.index('1')
+    except ValueError: # If no FFT in the impulse
+        dest_fft_value = 0
+
+    logger.debug(f'{src_fft_value}, {dest_fft_value}')
 
     logger.info(f"Highest FFT value: {fft_macros_list[max(src_fft_value, dest_fft_value)]}")
     tmp = dest_file_contents[-1]
@@ -231,7 +240,7 @@ def compare_values(val1, val2):
 def replace_value(src_file_contents, dest_file_contents, macro_sting, choose_high_value = True):
     num1, line_num1, str1 = find_value(src_file_contents, macro_sting)
     num2, line_num2, str2 = find_value(dest_file_contents, macro_sting)
-    logger.debug(num1, num2)
+    logger.debug(f'{num1}, {num2}')
 
     if num1 is None:
         logger.debug(f"{macro_sting} not found in source file")

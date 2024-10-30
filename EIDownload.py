@@ -1,8 +1,10 @@
 import requests, json, time, re, os
 import logging
 
+logging.basicConfig()
+
 logger = logging.getLogger("EIDownload")
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 class EIDownload:
 
@@ -41,6 +43,7 @@ class EIDownload:
             engine = 'tflite-eon'
         else:
             engine = 'tflite'
+
         if quantized:
             model_type = 'int8'
         else:

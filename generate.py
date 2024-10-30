@@ -15,8 +15,9 @@ parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='
 
 args = parser.parse_args()
 
+logging.basicConfig()
 logger = logging.getLogger("main")
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.INFO)
 
 # Get projects API Keys
 #projectIDs = args.projects.replace(' ', '').split(',')
