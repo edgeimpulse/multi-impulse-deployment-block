@@ -275,7 +275,7 @@ def compare_version(src_file_contents, dest_file_contents):
     patch_dest, _, _ = find_value(dest_file_contents, "EI_STUDIO_VERSION_PATCH")
 
     if major_src != major_dest or minor_src != minor_dest or patch_src != patch_dest:
-        logger.error("Error: Version mismatch, rebuild the projects with --force-rebuild")
+        logger.error("Error: Version mismatch, rebuild the projects with --force-build")
         logger.error(f"Source version: {major_src}.{minor_src}.{patch_src}")
         logger.error(f"Destination version: {major_dest}.{minor_dest}.{patch_dest}")
         sys.exit(1)
@@ -308,7 +308,10 @@ def merge_model_metadata(src_file, dest_file):
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION_COUNT")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_FFT_INFO")
         dest_file_contents = replace_value(src_file_contents, dest_file_contents, "EI_CLASSIFIER_NON_STANDARD_FFT_SIZES")
-        dest_file_contents = find_highest_fft_string(src_file_contents, dest_file_contents)
+        fft_macros_list = [f"EI_CLASSIFIER_LOAD_FFT_{32*num}" for num in [1, 2, 4, 8, 16, 32, 64, 128]]
+        # Logical OR to select each used FFT in both impulses (see edge-impulse-sdk/dsp/numpy.hpp | line 2067)
+        for macro in fft_macros_list:
+            dest_file_contents = replace_value(src_file_contents, dest_file_contents, macro)
         dest_file_contents = find_common_type(src_file_contents, dest_file_contents, "EI_CLASSIFIER_OBJECT_DETECTION_LAST_LAYER", object_detection_types)
         dest_file_contents = find_common_type(src_file_contents, dest_file_contents, "EI_CLASSIFIER_HAS_ANOMALY", anomaly_types)
 
