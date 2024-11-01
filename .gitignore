@@ -9,5 +9,5 @@ edge-impulse-sdk
 model-parameters
 tflite-model
 CMakeLists.txt
-.ei-block-config
+.ei-block-config*
 .vscode/*

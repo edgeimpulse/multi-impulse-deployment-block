@@ -1,6 +1,10 @@
-# Module to build and download models using EI API
-
 import requests, json, time, re, os
+import logging
+
+logging.basicConfig()
+
+logger = logging.getLogger("EIDownload")
+logger.setLevel(logging.INFO)
 
 class EIDownload:
 
@@ -8,13 +12,13 @@ class EIDownload:
         self.api_key = api_key
         if project_id is None:
             self.project_id = self.set_project_id()
-            print("Project ID is " + str(self.project_id))
+            logger.info("Project ID is " + str(self.project_id))
         else:
             self.project_id = project_id
 
     def get_project_id(self):
         return self.project_id
-    
+
     def set_project_id(self):
         url = f"https://studio.edgeimpulse.com/v1/api/projects"
         headers = {
@@ -27,7 +31,7 @@ class EIDownload:
         body = json.loads(response.text)
         if (not body['success']):
             raise Exception(body['error'])
-        
+
         return body['projects'][0]['id']
 
 
@@ -39,17 +43,18 @@ class EIDownload:
             engine = 'tflite-eon'
         else:
             engine = 'tflite'
+
         if quantized:
             model_type = 'int8'
         else:
             model_type = 'float32'
-    
+
         # Check if build is available first
-        if force_build or not self.build_available(engine, model_type):     
-            print("No build artefact found for project " + str(self.project_id) + ", will build library first.")  
+        if force_build or not self.build_available(engine, model_type):
+            logger.info("No build artefact found for project " + str(self.project_id) + ", will build library first.")
             job_id = self.build_model(engine, model_type)
             self.wait_for_job_completion(job_id)
-            print('Build OK')
+            logger.info('Build OK')
 
         url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/deployment/download"
         querystring = {
@@ -69,10 +74,10 @@ class EIDownload:
 
         with open(os.path.join(out_directory, fname), 'wb') as f:
             f.write(response.content)
-        print('Export ZIP saved in: ' + os.path.join(out_directory, fname) + ' (' + str(len(response.content)) + ' Bytes)')
-        
+        logger.info('Export ZIP saved in: ' + os.path.join(out_directory, fname) + ' (' + str(len(response.content)) + ' Bytes)')
+
         return os.path.join(out_directory, fname)
-    
+
     def build_available(self, engine, model_type):
         url = f"https://studio.edgeimpulse.com/v1/api/{self.project_id}/deployment"
         querystring = {"type": "zip", "modelType": model_type, "engine": engine}
@@ -86,7 +91,7 @@ class EIDownload:
         body = json.loads(response.text)
         if (not body['success']):
             raise Exception(body['error'])
-        
+
         return body['hasDeployment']
 
 
@@ -136,15 +141,15 @@ class EIDownload:
 
             stdout = self.get_stdout(job_id, skip_line_no)
             for l in stdout:
-                print(l, end='')
+                logger.info(l)
             skip_line_no = skip_line_no + len(stdout)
 
             if (not 'finished' in body['job']):
-                print('Still building...')
+                logger.info('Still building...')
                 time.sleep(1)
                 continue
             if (not body['job']['finishedSuccessful']):
-                print(f"Job did not finish successfully. Response: {response.text}")
+                logger.error(f"Job did not finish successfully. Response: {response.text}")
                 raise Exception('Job failed')
             else:
                 break
