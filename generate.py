@@ -12,6 +12,12 @@ parser.add_argument('--out-directory', type=str, default='/home/output', require
 parser.add_argument("--float32", action="store_true", help="Use float32 model")
 parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
 parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='eon', help="Inferencing engine to use.")
+parser.add_argument("--quantization-map", type=str, help="Description of quantization policy for each impulse", required=False)
+
+# EG
+# --api-keys apiA,apiB \
+# --quantization-map 0,1
+# This means that the first impulse of the first project will NOT be quantized and the second impulse WILL be quantized
 
 args, unknown = parser.parse_known_args()
 
@@ -30,6 +36,15 @@ if not (args.projects and args.tmp_directory):
     if not args.api_keys:
         raise(Exception('--api-keys argument not set'))
     apiKeys = args.api_keys.replace(' ', '').split(',') # comma between keys
+
+    if not args.quantization_map:
+        raise(Exception('--quantization-map argument not set'))
+    quantizationMap = args.quantization_map.replace(' ', '').split(',') # comma between mask
+
+    # check for duplicate projects
+    apiKeysSet = list(set(apiKeys))
+    if len(apiKeysSet) != len(apiKeys):
+        raise(Exception('Duplicate projects detected. Please provide unique API keys'))
 
     # verify that the input file exists and create the output directory if needed
     if not os.path.exists(args.out_directory):
@@ -53,7 +68,7 @@ if not (args.projects and args.tmp_directory):
         download_path = os.path.join(tmpdir, str(project_ids[i]))
 
         os.makedirs(download_path)
-        if args.float32:
+        if quantizationMap[i] == '0':
             quantized = False
         else:
             quantized = True
