@@ -5,6 +5,6 @@ echo "Building standalone classifier"
 
 cd $SCRIPTPATH
 
-make -j
+make -j `nproc`
 
 echo "Building standalone classifier OK"
