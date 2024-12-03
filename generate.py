@@ -9,7 +9,6 @@ parser.add_argument('--api-keys', type=str, help='List of API Keys', required=Fa
 parser.add_argument('--projects', type=str, help='List of project IDs separated by a comma', required=False)
 parser.add_argument('--tmp-directory', type=str, required=False)
 parser.add_argument('--out-directory', type=str, default='/home/output', required=False)
-parser.add_argument("--float32", action="store_true", help="Use float32 model")
 parser.add_argument("--force-build", action="store_true", help="Force build libraries, no cache")
 parser.add_argument("--engine", type=str, choices = ['eon', 'tflite'], default='eon', help="Inferencing engine to use.")
 parser.add_argument("--quantization-map", type=str, help="Description of quantization policy for each impulse", required=False)
@@ -101,7 +100,7 @@ shutil.copy(f2, os.path.join(target_dir, "tflite-model/trained_model_ops_define.
 if args.engine == 'tflite':
     f1 = os.path.join(tmpdir, project_ids[0], "tflite-model/tflite-resolver.h")
     f2 = os.path.join(tmpdir, project_ids[1], "tflite-model/tflite-resolver.h")
-    merge_model_ops(f1, f2)
+    merge_tflite_resolver(f1, f2)
     shutil.copy(f2, os.path.join(target_dir, "tflite-model/tflite-resolver.h"))
 
 # merge the model metadata
