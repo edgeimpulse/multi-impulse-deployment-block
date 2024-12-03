@@ -14,7 +14,7 @@ anomaly_types = {
 }
 
 object_detection_types = {
-    "EI_CLASSIFIER_LAST_LAYER_UNKNOWN": -1,
+    "EI_CLASSIFIER_LAST_LAYER_UNKNOWN": 0,
     "EI_CLASSIFIER_LAST_LAYER_SSD": 1,
     "EI_CLASSIFIER_LAST_LAYER_FOMO": 2,
     "EI_CLASSIFIER_LAST_LAYER_YOLOV5": 3,
@@ -229,7 +229,7 @@ def find_common_type(src_file_contents, dest_file_contents, macro_string, type_d
         pass
     # if one has type and the other does not
     elif (dest_type == 0):
-        dest_file_contents[line_num2] = re.sub(str1)
+        dest_file_contents[line_num2] = re.sub(dest_val, src_val, str2)
     # both have types of different values
     else:
         logger.error(f"Error: {macro_string} type mismatch, can only merge projects with the same type")
@@ -400,6 +400,34 @@ def merge_model_ops(src_file, dest_file):
                 file.write(line + '\n')
 
         logger.info("Merge model_ops done")
+
+    except FileNotFoundError as e:
+        logger.error(f"Error: {e}")
+
+def merge_tflite_resolver(src_file, dest_file):
+    try:
+        with open(src_file, 'r') as file1:
+            lines_file1 = [line.strip() for line in file1.readlines()]
+
+        with open(dest_file, 'r') as file2:
+            lines_file2 = [line.strip() for line in file2.readlines()]
+
+        # Find the union of lines
+        union = []
+        for line1, line2 in zip(lines_file1, lines_file2):
+            if line1 in lines_file2:
+                union.append(line1)
+            if not line2 in union:
+                union.append(line2)
+
+        # Write the union back to src_file
+        with open(dest_file, 'w') as file:
+            for line in union:
+                if line.startswith('resolver.') and not line.endswith('\\'):
+                    line = line + ' \\'
+                file.write(line + '\n')
+
+        logger.info("Merge tflite resolver done")
 
     except FileNotFoundError as e:
         logger.error(f"Error: {e}")
