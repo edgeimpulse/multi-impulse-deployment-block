@@ -422,9 +422,14 @@ def merge_tflite_resolver(src_file, dest_file):
 
         # Write the union back to src_file
         with open(dest_file, 'w') as file:
-            for line in union:
-                if line.startswith('resolver.') and not line.endswith('\\'):
-                    line = line + ' \\'
+            for index, line in enumerate(union):
+                if line.startswith('resolver.') and index < (len(union)-1):
+                    # Add backslash to the end of the line unless the next line is a preprocessor directive
+                    if not union[index+1].startswith('#'):
+                        if not line.endswith('\\'):
+                            line = line + ' \\'
+                    elif line.endswith('\\'):
+                            line = line.rstrip('\\')
                 file.write(line + '\n')
 
         logger.info("Merge tflite resolver done")
