@@ -156,7 +156,7 @@ shutil.copytree('templates', target_dir, dirs_exist_ok=True)
 # Get sample code to customize main.cpp
 
 # Get impulses ID from model_variables.h
-with open(os.path.join(target_dir, 'model-parameters/model_variables.h'), 'r') as file:
+with open(os.path.join(target_dir, 'model-parameters/model_variables.h'), 'r', encoding='utf-8') as file:
     file_content = file.read()
 impulses_id_set = set(re.findall(r"impulse_(\d+)_(\d+)", file_content))
 impulses_id = {}
@@ -194,7 +194,7 @@ static int get_signal_data_{p}(size_t offset, size_t length, float *out_ptr) {{
 {newline}"""
 
 # Insert custom code in main.cpp
-with open(os.path.join(target_dir, 'source/main.cpp'), 'r') as file1:
+with open(os.path.join(target_dir, 'source/main.cpp'), 'r', encoding='utf-8') as file1:
     main_template = file1.readlines()
 
 idx = main_template.index("// get_signal declaration inserted here\n") +1
@@ -207,7 +207,7 @@ idx = main_template.index("// callback functions inserted here\n") + 1
 main_template[idx:idx] = callback_function_code
 
 logger.info("Editing main.cpp")
-with open(os.path.join(target_dir, 'source/main.cpp'), 'w') as file1:
+with open(os.path.join(target_dir, 'source/main.cpp'), 'w', encoding='utf-8') as file1:
     file1.writelines(main_template)
 logger.info("main.cpp edited")
 
